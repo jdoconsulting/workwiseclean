@@ -1,8 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* === ChatGPT Replica Layer === */
+/* === LOCKED CHATGPT THEME === */
 :root {
   color-scheme: dark;
   --bg: #050509;
@@ -14,17 +10,16 @@
   --accent: #3b82f6;
   --radius: 0.75rem;
   --shadow: 0 0 12px rgba(0, 0, 0, 0.4);
-  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-/* Layout */
 html,
 body {
   margin: 0;
   height: 100%;
-  background: var(--bg);
+  background: var(--bg) !important;
   color: var(--text);
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -46,23 +41,13 @@ header p {
   color: var(--text-secondary);
 }
 
-/* Center panel */
-main {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 3rem 1rem 8rem;
-  gap: 1rem;
-}
-
-/* Module buttons */
 .module-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 1rem;
   width: 100%;
   max-width: 800px;
+  margin-top: 2rem;
 }
 
 button.module-btn {
@@ -80,7 +65,6 @@ button.module-btn:hover {
   border-color: #4b4b55;
 }
 
-/* Chat messages */
 .chat-container {
   max-width: 850px;
   width: 100%;
@@ -106,7 +90,6 @@ button.module-btn:hover {
   color: var(--text);
 }
 
-/* Input bar */
 footer {
   position: fixed;
   bottom: 0;
@@ -117,6 +100,7 @@ footer {
   padding: 0.75rem 1rem;
   display: flex;
   justify-content: center;
+  z-index: 50;
 }
 
 footer form {
