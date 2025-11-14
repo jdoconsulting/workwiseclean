@@ -1,139 +1,84 @@
-/* === LOCKED CHATGPT THEME === */
-:root {
-  color-scheme: dark;
-  --bg: #050509;
-  --surface: #1e1f24;
-  --input: #2a2b32;
-  --border: #2f3138;
-  --text: #ececf1;
-  --text-secondary: #8e8ea0;
-  --accent: #3b82f6;
-  --radius: 0.75rem;
-  --shadow: 0 0 12px rgba(0, 0, 0, 0.4);
-}
+import OpenAI from "openai";
 
-html,
-body {
-  margin: 0;
-  height: 100%;
-  background: var(--bg) !important;
-  color: var(--text);
-  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
-  -webkit-font-smoothing: antialiased;
-}
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  project: process.env.OPENAI_PROJECT_ID
+});
 
-header {
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-  text-align: center;
-  padding: 1rem 0.5rem;
-}
+export async function POST(req) {
+  try {
+    const { messages } = await req.json();
 
-header h1 {
-  font-size: 1rem;
-  font-weight: 500;
-  color: #f3f4f6;
-}
+    // --- Validation ---
+    if (!messages || !Array.isArray(messages)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid request: messages missing or not an array" }),
+        { status: 400 }
+      );
+    }
 
-header p {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
+    // --- Safety check: Make sure assistant ID exists ---
+    if (!process.env.WORKWISE_ASSISTANT_ID) {
+      console.error("❌ ERROR: WORKWISE_ASSISTANT_ID is not loaded from environment variables.");
+      return new Response(
+        JSON.stringify({
+          error: "Server misconfiguration: Assistant ID missing.",
+        }),
+        { status: 500 }
+      );
+    }
 
-.module-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
-  width: 100%;
-  max-width: 800px;
-  margin-top: 2rem;
-}
+    console.log("Loaded assistant ID:", process.env.WORKWISE_ASSISTANT_ID);
 
-button.module-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1rem;
-  text-align: left;
-  font-size: 0.875rem;
-  color: var(--text);
-  transition: all 0.2s ease;
-}
-button.module-btn:hover {
-  background: var(--input);
-  border-color: #4b4b55;
-}
+    // --- Create a thread for this conversation ---
+    const thread = await client.beta.threads.create();
 
-.chat-container {
-  max-width: 850px;
-  width: 100%;
-  margin-top: 2rem;
-  padding: 0 1rem;
-}
+    // --- Add user's latest message ---
+    await client.beta.threads.messages.create(thread.id, {
+      role: "user",
+      content: messages[messages.length - 1].content
+    });
 
-.message {
-  border-radius: var(--radius);
-  padding: 1rem 1.25rem;
-  margin-bottom: 0.75rem;
-  box-shadow: var(--shadow);
-  white-space: pre-wrap;
-  line-height: 1.6;
-}
+    // --- Run assistant on the thread ---
+    const run = await client.beta.threads.runs.createAndPoll(thread.id, {
+      assistant_id: process.env.WORKWISE_ASSISTANT_ID
+    });
 
-.user {
-  background: #2a2b32;
-  color: #90b4ff;
-}
-.coach {
-  background: #1e1f24;
-  color: var(--text);
-}
+    // --- If assistant completed normally ---
+    if (run.status === "completed") {
+      const messagesList = await client.beta.threads.messages.list(thread.id);
 
-footer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: var(--bg);
-  border-top: 1px solid var(--border);
-  padding: 0.75rem 1rem;
-  display: flex;
-  justify-content: center;
-  z-index: 50;
-}
+      const assistantMessages = messagesList.data.filter(
+        (m) => m.role === "assistant"
+      );
 
-footer form {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  width: 100%;
-  max-width: 850px;
-}
+      const lastMessage = assistantMessages[0];
 
-footer input[type="text"] {
-  flex: 1;
-  background: var(--input);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: 9999px;
-  padding: 0.75rem 1rem;
-  font-size: 0.9rem;
-}
-footer input::placeholder {
-  color: var(--text-secondary);
-}
+      return new Response(
+        JSON.stringify({
+          reply: lastMessage?.content?.[0]?.text?.value || ""
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+    }
 
-footer button {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 9999px;
-  padding: 0.6rem 1.25rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: background 0.2s ease;
-}
-footer button:hover {
-  background: #2563eb;
+    // --- Any other status (failed, requires_action, etc.) ---
+    return new Response(
+      JSON.stringify({
+        error: `Run did not complete. Status: ${run.status}`,
+        run,
+      }),
+      { status: 500 }
+    );
+
+  } catch (err) {
+    console.error("🔥 API ERROR:", err);
+    return new Response(
+      JSON.stringify({ error: err.message || "Unknown server error" }),
+      { status: 500 }
+    );
+  }
 }

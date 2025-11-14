@@ -1,3 +1,4 @@
+import "./chatgpt-theme.css";
 import "./globals.css";
 import type { Metadata } from "next";
 
@@ -6,10 +7,14 @@ export const metadata: Metadata = {
   description: "By Jenessa Disler · GPT-5 demo",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
-      <body className="bg-[#111111] text-gray-200 min-h-screen">
+      <body className="bg-[#111111] text-gray-200 min-h-screen flex flex-col">
         {children}
       </body>
     </html>
