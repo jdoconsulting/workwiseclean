@@ -1,22 +1,14 @@
-import "./chatgpt-theme.css";
 import "./globals.css";
-import type { Metadata } from "next";
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "Vertex One SoundingBoard",
-  description: "By Jenessa Disler · GPT-5 demo",
+  description: "Your sounding board for the Leader as Coach program",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className="bg-[#111111] text-gray-200 min-h-screen flex flex-col">
-        {children}
-      </body>
+      <body className="bg-[#212121]">{children}</body>
     </html>
   );
 }
