@@ -28,7 +28,7 @@ export default function Login() {
         return
       }
 
-      router.push('/')
+      router.push('/chat')
     } catch (err) {
       setError('Something went wrong. Please try again.')
     } finally {
