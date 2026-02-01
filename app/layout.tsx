@@ -5,7 +5,7 @@ export const metadata = {
   description: "Your sounding board for the Leader as Coach program",
 };
 
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body className="bg-[#212121]">{children}</body>
