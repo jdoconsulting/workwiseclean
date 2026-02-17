@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { supabaseAdmin } from "../../../lib/supabase-server";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -12,13 +13,11 @@ async function loadReferenceDocuments() {
   try {
     const docsPath = path.join(process.cwd(), "app", "reference-docs");
     
-    // Check if directory exists
     if (!fs.existsSync(docsPath)) {
       console.log("reference-docs folder not found");
       return;
     }
     
-    // List all .txt files in the directory
     const files = fs.readdirSync(docsPath).filter(file => file.endsWith('.txt'));
 
     if (files.length === 0) {
@@ -42,7 +41,6 @@ async function loadReferenceDocuments() {
   }
 }
 
-// Load documents when server starts
 loadReferenceDocuments();
 
 // Complete Vertex One coaching assistant instructions
@@ -322,11 +320,120 @@ Rules for sharing formulas:
 - Always connect the formula to THEIR real situation — ask about their specific scenario first
 - Work through elements conversationally, one at a time if helpful
 - Stay in coaching mode: ask questions to help them apply it, don't just lecture
-- You may share the full framework overview, then dive deeper into specific components based on their needs`;
+- You may share the full framework overview, then dive deeper into specific components based on their needs
+
+=========================================================
+SECTION 12 — COACHING-TO-GUIDING MODE SHIFT
+=========================================================
+Pure coaching (only asking questions) can become frustrating when a leader genuinely needs direction. Use this protocol to recognize when to shift from coaching to guiding.
+
+SHIFT TRIGGERS — Move to Guiding Mode when:
+- The leader explicitly asks for advice, suggestions, or "what would you do?"
+- The leader has explored a topic for 4+ exchanges without finding clarity
+- The leader expresses frustration with continued questioning ("just tell me what to do")
+- The leader is stuck in a loop, repeating the same concern without progress
+- The leader faces a time-sensitive decision and needs practical direction
+- The leader asks "what's the answer?" or similar direct requests
+
+GUIDING MODE BEHAVIORS:
+When triggered, you may:
+- Offer a direct suggestion or perspective ("One approach that often works is...")
+- Share a concrete example or framework application
+- Provide 2-3 options with brief pros/cons
+- Give a clear recommendation while honoring their autonomy ("If I were in your position, I might consider...")
+- Summarize what you've heard and offer a synthesis
+
+GUIDING MODE RULES:
+- Always frame guidance as an offering, not a directive
+- After providing guidance, return to coaching: "How does that land for you?" or "What resonates?"
+- Never abandon the coaching stance entirely — guide, then re-engage their thinking
+- Keep guidance concise (2-4 sentences max before checking in)
+- Honor their expertise: "You know your context best — does this fit?"
+
+EXAMPLE TRANSITIONS:
+- "You've been sitting with this for a while. Would it help if I shared what I'm noticing?"
+- "I hear you wanting some direction here. Can I offer a thought?"
+- "Let me share something that might be useful, and you can tell me if it fits your situation."
+
+DEFAULT STANCE:
+Start every session in coaching mode. Only shift to guiding when clear triggers appear. The goal is insight AND practical value — not endless questions.`;
+
+// Helper function to save message to database
+async function saveMessage(conversationId, role, content) {
+  try {
+    const { error } = await supabaseAdmin
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        role: role,
+        content: content
+      });
+    
+    if (error) {
+      console.error('Error saving message:', error);
+    }
+  } catch (err) {
+    console.error('Failed to save message:', err);
+  }
+}
+
+// Helper function to get or create conversation
+async function getOrCreateConversation(userId, conversationId) {
+  try {
+    // If we have an existing conversation ID, verify it exists
+    if (conversationId) {
+      const { data: existing } = await supabaseAdmin
+        .from('conversations')
+        .select('id')
+        .eq('id', conversationId)
+        .single();
+      
+      if (existing) {
+        // Update the updated_at timestamp
+        await supabaseAdmin
+          .from('conversations')
+          .update({ updated_at: new Date().toISOString() })
+          .eq('id', conversationId);
+        return conversationId;
+      }
+    }
+    
+    // Create new conversation
+    const { data, error } = await supabaseAdmin
+      .from('conversations')
+      .insert({
+        user_id: userId,
+        title: 'Coaching Session'
+      })
+      .select('id')
+      .single();
+    
+    if (error) {
+      console.error('Error creating conversation:', error);
+      return null;
+    }
+    
+    return data.id;
+  } catch (err) {
+    console.error('Failed to get/create conversation:', err);
+    return null;
+  }
+}
 
 export async function POST(req) {
   try {
-    const { threadId, userMessage, conversationHistory = [] } = await req.json();
+    const { threadId, userMessage, conversationHistory = [], userId, conversationId } = await req.json();
+
+    // Get or create conversation in database
+    let dbConversationId = null;
+    if (userId) {
+      dbConversationId = await getOrCreateConversation(userId, conversationId);
+      
+      // Save user message
+      if (dbConversationId) {
+        await saveMessage(dbConversationId, 'user', userMessage);
+      }
+    }
 
     // Build messages array with system instructions, reference documents, and history
     const messages = [
@@ -347,19 +454,26 @@ export async function POST(req) {
       max_tokens: 2000,
     });
 
+    // Collect the full response for saving
+    let fullResponse = '';
+
     // Stream the response
     const encoder = new TextEncoder();
     const customStream = new ReadableStream({
       async start(controller) {
         try {
-          // Send thread confirmation
-          const threadData = { thread: { id: threadId || `thread_${Date.now()}` } };
+          // Send thread confirmation with conversation ID
+          const threadData = { 
+            thread: { id: threadId || `thread_${Date.now()}` },
+            conversationId: dbConversationId
+          };
           controller.enqueue(encoder.encode(JSON.stringify(threadData) + "\n"));
 
           // Stream the assistant's response
           for await (const chunk of stream) {
             const content = chunk.choices[0]?.delta?.content;
             if (content) {
+              fullResponse += content;
               const event = {
                 event: "thread.message.delta",
                 data: {
@@ -373,6 +487,11 @@ export async function POST(req) {
               };
               controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
             }
+          }
+
+          // Save the complete assistant response
+          if (dbConversationId && fullResponse) {
+            await saveMessage(dbConversationId, 'assistant', fullResponse);
           }
 
           controller.close();
