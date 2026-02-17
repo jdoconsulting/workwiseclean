@@ -13,6 +13,7 @@ export default function VertexOneSoundBoard() {
   const [isLoading, setIsLoading] = useState(false);
   const [threadId, setThreadId] = useState(null);
   const [conversationHistory, setConversationHistory] = useState([]);
+  const [conversationId, setConversationId] = useState(null);
   const [feedbackVisible, setFeedbackVisible] = useState(false);
   const [feedbackType, setFeedbackType] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
@@ -114,7 +115,9 @@ export default function VertexOneSoundBoard() {
         body: JSON.stringify({
           threadId,
           userMessage: textToSend,
-          conversationHistory
+          conversationHistory,
+          userId: user?.id,
+          conversationId: conversationId
         }),
       });
 
@@ -141,6 +144,11 @@ export default function VertexOneSoundBoard() {
             if (data.thread?.id && !newThreadId) {
               newThreadId = data.thread.id;
               setThreadId(newThreadId);
+            }
+
+            // Save the conversation ID from the API response
+            if (data.conversationId) {
+              setConversationId(data.conversationId);
             }
 
             if (data.event === 'thread.message.delta') {
@@ -197,6 +205,14 @@ export default function VertexOneSoundBoard() {
     sendMessage(practiceMessages[type]);
   };
 
+  // Reset conversation (for new chat)
+  const startNewConversation = () => {
+    setMessages([]);
+    setConversationHistory([]);
+    setThreadId(null);
+    setConversationId(null);
+  };
+
   // Show loading while checking auth
   if (authLoading) {
     return (
@@ -249,11 +265,7 @@ export default function VertexOneSoundBoard() {
             />
           </div>
           <span 
-            onClick={() => {
-              setMessages([]);
-              setConversationHistory([]);
-              setThreadId(null);
-            }}
+            onClick={startNewConversation}
             style={{ 
               fontSize: '18px', 
               fontWeight: '500',
@@ -703,11 +715,7 @@ export default function VertexOneSoundBoard() {
             }}
             onMouseEnter={(e) => e.currentTarget.style.color = '#aaa'}
             onMouseLeave={(e) => e.currentTarget.style.color = '#666'}
-            onClick={() => {
-              setMessages([]);
-              setConversationHistory([]);
-              setThreadId(null);
-            }}>
+            onClick={startNewConversation}>
               <Plus size={20} />
             </button>
             <input
