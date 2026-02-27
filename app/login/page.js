@@ -93,7 +93,7 @@ export default function Login() {
             />
           </div>
 
-          <div style={{ marginBottom: '24px' }}>
+          <div style={{ marginBottom: '8px' }}>
             <label style={{ display: 'block', color: '#aaa', fontSize: '14px', marginBottom: '8px' }}>
               Password
             </label>
@@ -116,6 +116,12 @@ export default function Login() {
               placeholder="Your password"
             />
           </div>
+
+          <p style={{ textAlign: 'right', marginBottom: '24px', marginTop: '8px' }}>
+            <Link href="/forgot-password" style={{ color: '#3b9eff', fontSize: '13px', textDecoration: 'none' }}>
+              Forgot your password?
+            </Link>
+          </p>
 
           {error && (
             <div style={{
