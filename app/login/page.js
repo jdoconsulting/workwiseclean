@@ -157,6 +157,17 @@ export default function Login() {
           textAlign: 'center',
           marginTop: '24px'
         }}>
+          <Link href="/forgot-password" style={{ color: '#3b9eff', textDecoration: 'none' }}>
+            Forgot your password?
+          </Link>
+        </p>
+
+        <p style={{
+          color: '#888',
+          fontSize: '14px',
+          textAlign: 'center',
+          marginTop: '12px'
+        }}>
           Don't have an account?{' '}
           <Link href="/signup" style={{ color: '#3b9eff', textDecoration: 'none' }}>
             Sign up
