@@ -1,5 +1,5 @@
 "use client"
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase.js'
 import { useRouter } from 'next/navigation'
 
@@ -8,7 +8,17 @@ export default function ResetPassword() {
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [sessionReady, setSessionReady] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setSessionReady(true)
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   const handleUpdate = async (e) => {
     e.preventDefault()
@@ -42,6 +52,12 @@ export default function ResetPassword() {
           Choose a new password for your account
         </p>
 
+        {!sessionReady && (
+          <p style={{ color: '#888', fontSize: '13px', textAlign: 'center', marginBottom: '16px' }}>
+            Verifying your reset link...
+          </p>
+        )}
+
         <form onSubmit={handleUpdate}>
           {['New Password', 'Confirm Password'].map((label, i) => (
             <div key={i} style={{ marginBottom: '20px' }}>
@@ -68,10 +84,11 @@ export default function ResetPassword() {
             }}>{error}</div>
           )}
 
-          <button type="submit" disabled={loading} style={{
-            width: '100%', padding: '14px', backgroundColor: loading ? '#444' : '#3b9eff',
+          <button type="submit" disabled={loading || !sessionReady} style={{
+            width: '100%', padding: '14px',
+            backgroundColor: loading || !sessionReady ? '#444' : '#3b9eff',
             color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px',
-            fontWeight: '500', cursor: loading ? 'not-allowed' : 'pointer'
+            fontWeight: '500', cursor: loading || !sessionReady ? 'not-allowed' : 'pointer'
           }}>
             {loading ? 'Updating...' : 'Update Password'}
           </button>
